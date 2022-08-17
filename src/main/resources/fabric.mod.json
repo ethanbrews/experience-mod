@@ -8,11 +8,11 @@
     "Ethan Brews"
   ],
   "contact": {
-    "homepage": "https://example.com/",
-    "issues": "https://example.com/",
-    "sources": "https://example.com/"
+    "homepage": "https://github.com/ethanbrews/experience-mod",
+    "issues": "https://github.com/ethanbrews/experience-mod/issues",
+    "sources": "https://github.com/ethanbrews/experience-mod"
   },
-  "license": "The Unlicense",
+  "license": "GPLv3",
   "icon": "assets/experience/icon.png",
   "environment": "*",
   "entrypoints": {

@@ -1,5 +1,5 @@
 package me.ethanbrews.experience.items
 
-interface IItemWithId {
+interface IEItem {
     val id: String
 }

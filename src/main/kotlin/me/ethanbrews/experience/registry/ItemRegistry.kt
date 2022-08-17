@@ -1,7 +1,6 @@
 package me.ethanbrews.experience.registry
 
-import me.ethanbrews.experience.items.ExperienceItemBase
-import me.ethanbrews.experience.items.ExperienceSimpleItem
+import me.ethanbrews.experience.items.SimpleItem
 import me.ethanbrews.experience.items.SentientStaff
 import me.ethanbrews.experience.items.SentientStick
 import me.ethanbrews.experience.utility.id
@@ -18,11 +17,12 @@ object ItemRegistry {
 
     val sentientStick = SentientStick()
     val sentientStaff = SentientStaff()
-    val brain = ExperienceSimpleItem("brain")
+    val brain = SimpleItem("brain")
 
     fun register() {
         listOf(sentientStaff, brain, BlockRegistry.sentient_stone.item, sentientStick).forEach {
             Registry.register(Registry.ITEM, id(it.id), it)
         }
+        Registry.register(Registry.ITEM, id(BlockRegistry.sentient_stand.item.id), BlockRegistry.sentient_stand.item as Item)
     }
 }
