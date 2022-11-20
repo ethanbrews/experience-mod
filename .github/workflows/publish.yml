@@ -1,6 +1,19 @@
+name: Publish Mod
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+permissions:
+  contents: read
+  
 jobs:
   build:
+    runs-on: ubuntu-latest
     steps:
+      - name: Publish
       - uses: Kir-Antipov/mc-publish@v3.2
         with:
           # You don't need this section if you don't want to publish
