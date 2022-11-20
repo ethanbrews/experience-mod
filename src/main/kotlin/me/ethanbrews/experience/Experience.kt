@@ -9,6 +9,6 @@ val logger = LogManager.getLogger(modid)
 
 fun init() {
     logger.info("Loading $modid")
-    BlockRegistry.register()
     ItemRegistry.register()
+    BlockRegistry.register()
 }

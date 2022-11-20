@@ -21,6 +21,8 @@ object BlockRegistry {
             Registry.register(Registry.BLOCK, id(it.id), it)
         }
 
-        Registry.register(Registry.BLOCK_ENTITY_TYPE, id("sentient_stand_entity"), FabricBlockEntityTypeBuilder.create({ x: BlockPos, y: BlockState -> SentientStandEntity(x, y)}, sentient_stand).build())
+        sentient_stand_entity = FabricBlockEntityTypeBuilder.create({ x: BlockPos, y: BlockState -> SentientStandEntity(x, y)}, sentient_stand).build()
+
+        Registry.register(Registry.BLOCK_ENTITY_TYPE, id("sentient_stand_entity"), sentient_stand_entity)
     }
 }

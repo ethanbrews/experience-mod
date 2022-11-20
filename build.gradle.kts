@@ -3,6 +3,7 @@ plugins {
     val kotlinVersion: String by System.getProperties()
     kotlin("jvm").version(kotlinVersion)
     id("com.modrinth.minotaur").version("2.+")
+    id("org.jetbrains.dokka") version "1.7.20"
 }
 
 modrinth {

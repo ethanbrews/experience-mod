@@ -20,9 +20,8 @@ object ItemRegistry {
     val brain = SimpleItem("brain")
 
     fun register() {
-        listOf(sentientStaff, brain, BlockRegistry.sentient_stone.item, sentientStick).forEach {
-            Registry.register(Registry.ITEM, id(it.id), it)
+        listOf(sentientStaff, brain, BlockRegistry.sentient_stone.item, BlockRegistry.sentient_stand.item, sentientStick).forEach {
+            Registry.register(Registry.ITEM, id(it.id), it as Item)
         }
-        Registry.register(Registry.ITEM, id(BlockRegistry.sentient_stand.item.id), BlockRegistry.sentient_stand.item as Item)
     }
 }
