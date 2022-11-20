@@ -1,0 +1,13 @@
+jobs:
+  build:
+    steps:
+      - uses: Kir-Antipov/mc-publish@v3.2
+        with:
+          # You don't need this section if you don't want to publish
+          # your assets to Modrinth
+          modrinth-id: fMOWQvoY
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+
+          # You don't need this section if you don't want to publish
+          # your assets to GitHub
+          github-token: ${{ secrets.GITHUB_TOKEN }}
