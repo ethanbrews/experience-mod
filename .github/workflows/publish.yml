@@ -13,8 +13,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Publish
       - uses: Kir-Antipov/mc-publish@v3.2
+        name: Publish
         with:
           # You don't need this section if you don't want to publish
           # your assets to Modrinth
