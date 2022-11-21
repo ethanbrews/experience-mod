@@ -21,6 +21,12 @@
         "adapter": "kotlin",
         "value": "me.ethanbrews.experience.ExperienceKt::init"
       }
+    ],
+    "client": [
+      {
+        "adapter": "kotlin",
+        "value": "me.ethanbrews.experience.ExperienceKt::client"
+      }
     ]
   },
   "mixins": [

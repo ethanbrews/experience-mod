@@ -31,7 +31,9 @@ val modVersion: String by project
 version = modVersion
 val mavenGroup: String by project
 group = mavenGroup
-repositories {}
+repositories {
+    mavenCentral()
+}
 
 
 dependencies {
@@ -45,6 +47,8 @@ dependencies {
     modImplementation("net.fabricmc.fabric-api", "fabric-api", fabricVersion)
     val fabricKotlinVersion: String by project
     modImplementation("net.fabricmc", "fabric-language-kotlin", fabricKotlinVersion)
+    val klaxonVersion: String by project
+    implementation("com.beust", "klaxon", klaxonVersion)
 }
 
 

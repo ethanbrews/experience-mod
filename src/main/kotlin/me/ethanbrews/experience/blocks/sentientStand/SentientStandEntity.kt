@@ -1,19 +1,25 @@
 package me.ethanbrews.experience.blocks.sentientStand
 
-import me.ethanbrews.experience.network.BlockEntityUpdatePacketID
-import me.ethanbrews.experience.network.Packets
+import me.ethanbrews.experience.items.SentientStaff
 import me.ethanbrews.experience.registry.BlockRegistry
+import net.minecraft.block.Block
 import net.minecraft.block.BlockState
 import net.minecraft.block.entity.BlockEntity
-import net.minecraft.entity.Entity
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.inventory.SimpleInventory
+import net.minecraft.item.Item
 import net.minecraft.item.ItemStack
+import net.minecraft.nbt.NbtCompound
+import net.minecraft.network.Packet
+import net.minecraft.network.listener.ClientPlayPacketListener
 import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket
+import net.minecraft.text.Text
 import net.minecraft.util.ActionResult
 import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.Vec3i
 import net.minecraft.world.World
+import javax.annotation.Nullable
+
 
 class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockRegistry.sentient_stand_entity, pos, state) {
     private var _inventory = SimpleInventory(1)
@@ -103,8 +109,27 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
         return ActionResult.PASS
     }
 
+    override fun writeNbt(nbt: NbtCompound) {
+        super.writeNbt(nbt)
+        nbt.put("inventory", _inventory.toNbtList())
+    }
+
+    override fun readNbt(nbt: NbtCompound) {
+        super.readNbt(nbt)
+        _inventory = SimpleInventory(1)
+        _inventory.readNbtList(nbt.getList("inventory", 10))
+    }
+
     fun playerUse(player: PlayerEntity): ActionResult {
-        val result = interactWithPlayerInventory(player)
+        val item: Item = player.inventory.getStack(player.inventory.selectedSlot).item
+        var result = ActionResult.PASS
+        if (item is SentientStaff) {
+            if (world?.let { isValidStructure(it) } == true) {
+                player.sendMessage(Text.literal("Triggering a ritual!"))
+            }
+        } else {
+            result = interactWithPlayerInventory(player)
+        }
         sendUpdatePacket()
         return result
     }
@@ -115,11 +140,16 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
         }
     }
 
-    fun sendUpdatePacket() { toUpdatePacket() }
+    fun sendUpdatePacket() {
+        world?.updateListeners(pos, cachedState, cachedState, Block.NOTIFY_LISTENERS);
+    }
 
-    override fun toUpdatePacket(): BlockEntityUpdateS2CPacket? {
-        Packets.sendBlockEntityUpdate(this, BlockEntityUpdatePacketID.RITUAL)
-        return null
+    override fun toUpdatePacket(): Packet<ClientPlayPacketListener?>? {
+        return BlockEntityUpdateS2CPacket.create(this)
+    }
+
+    override fun toInitialChunkDataNbt(): NbtCompound? {
+        return createNbt()
     }
 
     companion object {
