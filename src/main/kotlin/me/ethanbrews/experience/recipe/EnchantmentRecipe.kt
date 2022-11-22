@@ -1,12 +1,18 @@
 package me.ethanbrews.experience.recipe
 
-import net.minecraft.inventory.CraftingInventory
-import net.minecraft.recipe.Ingredient
-import net.minecraft.recipe.Recipe
+import me.ethanbrews.experience.logger
+import net.minecraft.item.ItemStack
 import net.minecraft.util.Identifier
+import net.minecraft.util.registry.Registry
 
-class EnchantmentRecipe {
-    private val ingredients = arrayOfNulls<Ingredient>(9)
-
-    constructor(id: Identifier, )
+class EnchantmentRecipe(data: EnchantmentRecipeData) {
+    fun testItemStack(descriptor: ItemDescriptor, stack: ItemStack): Boolean {
+        descriptor.enchantment?.let {
+            val enchantment = Registry.ENCHANTMENT.get(Identifier(it))
+            stack.enchantments.forEach {
+                logger.info(it.nbtType.toString())
+            }
+        }
+        return true
+    }
 }
