@@ -1,0 +1,9 @@
+{
+  "result": "minecraft:sharpness",
+  "items": [
+    { "item": "minecraft:quartz" },
+    { "item": "minecraft:quartz" },
+    { "item": "minecraft:quartz" },
+    { "item": "minecraft:quartz" }
+  ]
+}

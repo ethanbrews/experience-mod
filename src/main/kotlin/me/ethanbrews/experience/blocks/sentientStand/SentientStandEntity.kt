@@ -1,6 +1,7 @@
 package me.ethanbrews.experience.blocks.sentientStand
 
 import me.ethanbrews.experience.items.SentientStaff
+import me.ethanbrews.experience.recipe.EnchantmentRecipe
 import me.ethanbrews.experience.registry.BlockRegistry
 import net.minecraft.block.Block
 import net.minecraft.block.BlockState
@@ -18,7 +19,8 @@ import net.minecraft.util.ActionResult
 import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.Vec3i
 import net.minecraft.world.World
-import javax.annotation.Nullable
+
+typealias GameTick = Int
 
 
 class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockRegistry.sentient_stand_entity, pos, state) {
@@ -31,6 +33,16 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
             _inventory.setStack(0, value)
         }
 
+    val isLocked : Boolean
+        get() { return _event != null }
+
+    private val _isMasterBlock: Boolean
+        get() { return _event?.let { it.masterPos == this.pos } == true }
+
+    public fun setEvent(event: SentientStandEvent) {
+        _event = event
+    }
+
     /**
      * Check the structure is valid. This must be the center block.
      * A structure is valid if it contains all tier 1 blocks or all tier 1 and 2 blocks.
@@ -40,22 +52,42 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
      * @return true if the structure is valid and this is the center block
      */
     private fun isValidStructure(world: World): Boolean {
+        return checkTier(world) > 0
+    }
+
+    private fun checkTier(world: World): Int {
         fun checkIt(it: Vec3i): Boolean = world.getBlockEntity(this.pos.add(it)) is SentientStandEntity
-        return tier1Positions.all {checkIt(it) } &&
-        (
-            (!tier2Positions.any { checkIt(it) }) ||
-            tier2Positions.all { checkIt(it) }
-        )
+        if (!tier1Positions.all { checkIt(it) })
+            return 0
+        if (tier2Positions.all { checkIt(it )})
+            return 2
+        if (tier2Positions.any { checkIt(it) })
+            return 0
+        return 1
+    }
+
+    private fun getOthers(world: World): List<SentientStandEntity> {
+        return when (checkTier(world)) {
+            1 -> tier1Positions.map {
+                world.getBlockEntity(this.pos.add(it)) as SentientStandEntity
+            }
+            2 -> (tier1Positions + tier2Positions).map {
+                world.getBlockEntity(this.pos.add(it)) as SentientStandEntity
+            }
+            else -> listOf()
+        }
     }
 
     /**
      * Interact with a player's inventory.
      * Either add or remove an item or do nothing
-     *
      * @param player the player that is interacting with the pedestal
      * @return the result of the action.
      */
     private fun interactWithPlayerInventory(player: PlayerEntity): ActionResult {
+        if (isLocked)
+            return ActionResult.FAIL
+
         val playerItem: ItemStack = player.inventory.getStack(player.inventory.selectedSlot)
         val blockItem: ItemStack = stack
 
@@ -112,20 +144,38 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
     override fun writeNbt(nbt: NbtCompound) {
         super.writeNbt(nbt)
         nbt.put("inventory", _inventory.toNbtList())
+        if (_event != null)
+            nbt.put("event", _event!!.toNbt())
     }
 
     override fun readNbt(nbt: NbtCompound) {
         super.readNbt(nbt)
         _inventory = SimpleInventory(1)
         _inventory.readNbtList(nbt.getList("inventory", 10))
+        _event = if (nbt.contains("event"))
+            SentientStandEvent.fromNbt(nbt.getCompound("event"))
+        else
+            null
     }
 
     fun playerUse(player: PlayerEntity): ActionResult {
         val item: Item = player.inventory.getStack(player.inventory.selectedSlot).item
         var result = ActionResult.PASS
         if (item is SentientStaff) {
-            if (world?.let { isValidStructure(it) } == true) {
-                player.sendMessage(Text.literal("Triggering a ritual!"))
+
+            world?.let {world ->
+                if (isValidStructure(world)) {
+                    val auxiliaryStands = getOthers(world)
+                    val recipe = EnchantmentRecipe.recipes.firstOrNull { recipe ->
+                        recipe.validate(auxiliaryStands.map { it.stack })
+                    }
+                    if (recipe == null) {
+                        player.sendMessage(Text.literal("No recipe found!"), true)
+                    } else {
+                        _event = SentientStandEvent(player, this.pos, SETUP_INTERVAL+FINISH_INTERNVAL+(ITEM_INTERVAL*4*checkTier(world)))
+                        auxiliaryStands.forEach { it.setEvent(_event!!) }
+                    }
+                }
             }
         } else {
             result = interactWithPlayerInventory(player)
@@ -135,12 +185,19 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
     }
 
     fun tick(world: World) {
+        if (!_isMasterBlock)
+            return
         if (world.isClient) {
 
+        } else {
+            _event = _event?.run {
+
+                _event
+            }
         }
     }
 
-    fun sendUpdatePacket() {
+    private fun sendUpdatePacket() {
         world?.updateListeners(pos, cachedState, cachedState, Block.NOTIFY_LISTENERS);
     }
 
@@ -166,6 +223,10 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
             Vec3i(2, 0, -2),
             Vec3i(2, 0, 2)
         )
+
+        val SETUP_INTERVAL: GameTick =   80
+        val ITEM_INTERVAL: GameTick =    30
+        val FINISH_INTERNVAL: GameTick = 80
 
         fun tick(world: World, pos: BlockPos, state: BlockState, be: SentientStandEntity) {
             be.tick(world)
