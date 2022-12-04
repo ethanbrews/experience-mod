@@ -1,11 +1,16 @@
 package me.ethanbrews.experience.blocks.sentientStand
 
 import me.ethanbrews.experience.items.SentientStaff
+import me.ethanbrews.experience.logger
 import me.ethanbrews.experience.recipe.EnchantmentRecipe
 import me.ethanbrews.experience.registry.BlockRegistry
+import net.fabricmc.fabric.api.client.particle.v1.ParticleFactoryRegistry
 import net.minecraft.block.Block
 import net.minecraft.block.BlockState
 import net.minecraft.block.entity.BlockEntity
+import net.minecraft.client.particle.Particle
+import net.minecraft.enchantment.Enchantment
+import net.minecraft.enchantment.EnchantmentHelper
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.inventory.SimpleInventory
 import net.minecraft.item.Item
@@ -14,11 +19,15 @@ import net.minecraft.nbt.NbtCompound
 import net.minecraft.network.Packet
 import net.minecraft.network.listener.ClientPlayPacketListener
 import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket
+import net.minecraft.particle.ParticleEffect
+import net.minecraft.particle.ParticleType
+import net.minecraft.particle.ParticleTypes
 import net.minecraft.text.Text
 import net.minecraft.util.ActionResult
 import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.Vec3i
 import net.minecraft.world.World
+import kotlin.random.Random
 
 typealias GameTick = Int
 
@@ -31,15 +40,16 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
         get() = _inventory.getStack(0)
         set(value) {
             _inventory.setStack(0, value)
+            sendUpdatePacket()
         }
 
-    val isLocked : Boolean
+    private val isLocked : Boolean
         get() { return _event != null }
 
     private val _isMasterBlock: Boolean
         get() { return _event?.let { it.masterPos == this.pos } == true }
 
-    public fun setEvent(event: SentientStandEvent) {
+    fun setEvent(event: SentientStandEvent) {
         _event = event
     }
 
@@ -172,7 +182,7 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
                     if (recipe == null) {
                         player.sendMessage(Text.literal("No recipe found!"), true)
                     } else {
-                        _event = SentientStandEvent(player, this.pos, SETUP_INTERVAL+FINISH_INTERNVAL+(ITEM_INTERVAL*4*checkTier(world)))
+                        _event = SentientStandEvent(player.uuidAsString, this.pos, SETUP_INTERVAL+FINISH_INTERNVAL+(ITEM_INTERVAL*4*checkTier(world)), EnchantmentHelper.getEnchantmentId(recipe.result)!!)
                         auxiliaryStands.forEach { it.setEvent(_event!!) }
                     }
                 }
@@ -187,14 +197,66 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
     fun tick(world: World) {
         if (!_isMasterBlock)
             return
+
+        val event = _event ?: return
+        val auxStands = getOthers(world)
+
         if (world.isClient) {
+            fun nd(f: Double, t: Double): Double { return Random.Default.nextDouble(f, t) }
+
+            val x = nd(-3.0, 3.0); val y = nd(0.5, 2.5); val z = nd(-3.0, 3.0);
+            val vx = nd(-0.1, 0.1); val vz = nd(-0.1, 0.1);
+            world.addParticle(ParticleTypes.ENCHANT, pos.x + x, pos.y + y, pos.z + z, vx, -0.1, vz)
+
+            // IF we have burned through the setup interval...
+            if (event.initialTickCounter-event.tickCounter == SETUP_INTERVAL) {
+
+                // IF we are beginning the finish interval...
+            } else if (event.tickCounter == FINISH_INTERNVAL) {
+
+                // IF we are destroying the next item...
+            } else if (event.tickCounter - (SETUP_INTERVAL + FINISH_INTERNVAL) % ITEM_INTERVAL == 0) {
+                // Time to delete the next item
+                val nextStand = auxStands[(event.tickCounter - (SETUP_INTERVAL + FINISH_INTERNVAL) / ITEM_INTERVAL)-2]
+
+                // IF we are exiting...
+            } else if (event.tickCounter == 0) {
+
+            } else {
+
+            }
 
         } else {
-            _event = _event?.run {
-
-                _event
+            event.tickCounter -= 1
+            logger.info("Tick counter = ${event.tickCounter}")
+            // IF we have burned through the setup interval...
+            if (event.initialTickCounter-event.tickCounter == SETUP_INTERVAL) {
+                sendUpdatePacket()
+            // IF we are beginning the finish interval...
+            } else if (event.tickCounter == FINISH_INTERNVAL) {
+                sendUpdatePacket()
+            // IF we are destroying the next item...
+            } else if (event.tickCounter - (SETUP_INTERVAL + FINISH_INTERNVAL) % ITEM_INTERVAL == 0) {
+                // Time to delete the next item
+                val nextStand = auxStands[(event.tickCounter - (SETUP_INTERVAL + FINISH_INTERNVAL) / ITEM_INTERVAL)-2]
+                nextStand.stack = ItemStack.EMPTY
+                sendUpdatePacket()
+            // IF we are exiting...
+            } else if (event.tickCounter == 0) {
+                val currentEnchantments = EnchantmentHelper.get(stack)
+                if (!currentEnchantments.containsKey(event.enchantment))
+                    currentEnchantments[event.enchantment] = currentEnchantments[event.enchantment]?.plus(1) ?: 1
+                else
+                    currentEnchantments[event.enchantment] = 1
             }
+            if (event.tickCounter == 0) {
+                _event = null
+                sendUpdatePacket()
+            }
+            else
+                _event = event
         }
+
     }
 
     private fun sendUpdatePacket() {
