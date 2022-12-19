@@ -24,6 +24,11 @@ class SentientStand : BlockWithEntity(Settings.of(Material.STONE).hardness(4.0F)
         return SentientStandEntity(pos, state)
     }
 
+    override fun onBreak(world: World?, pos: BlockPos?, state: BlockState?, player: PlayerEntity?) {
+        super.onBreak(world, pos, state, player)
+        (world?.getBlockEntity(pos) as SentientStandEntity).breaking(world)
+    }
+
     override fun onUse(
         state: BlockState,
         world: World,

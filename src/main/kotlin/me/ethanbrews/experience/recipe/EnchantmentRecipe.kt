@@ -4,6 +4,7 @@ import com.beust.klaxon.Json
 import com.beust.klaxon.Klaxon
 import me.ethanbrews.experience.logger
 import me.ethanbrews.experience.modid
+import me.ethanbrews.experience.utility.ExperienceHelper
 import net.minecraft.enchantment.Enchantment
 import net.minecraft.item.ItemStack
 import net.minecraft.util.Identifier
@@ -21,9 +22,25 @@ class EnchantmentRecipe {
     @Json(name = "result", ignored = false)
     private val resultIdentifier: String? = null
 
+    @Json(name = "experience", ignored = false)
+    private val xpString: String? = null
+
     @Json(ignored = true)
     val result: Enchantment? get() {
         return Registry.ENCHANTMENT[Identifier(resultIdentifier)]
+    }
+
+    fun getExperienceCost(playerLevels: Int): Int {
+        return xpString?.let {
+            if (it.endsWith('l', true)) {
+                ExperienceHelper.getExperienceCost(
+                    it.slice(0 until it.length - 1).toInt(),
+                    playerLevels
+                )
+            } else {
+                it.toInt()
+            }
+        } ?: 0
     }
 
     fun validate(stacks: List<ItemStack>): Boolean {

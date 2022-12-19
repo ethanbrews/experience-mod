@@ -1,0 +1,10 @@
+{
+  "result": "minecraft:unbreaking",
+  "experience": "6l",
+  "items": [
+    { "item": "minecraft:iron_ingot" },
+    { "item": "minecraft:iron_ingot" },
+    { "item": "minecraft:iron_ingot" },
+    { "item": "minecraft:obsidian" }
+  ]
+}

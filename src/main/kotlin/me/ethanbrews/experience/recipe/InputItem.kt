@@ -3,6 +3,7 @@ package me.ethanbrews.experience.recipe
 import com.beust.klaxon.Json
 import me.ethanbrews.experience.error.ImpossibleException
 import me.ethanbrews.experience.error.InvalidFormatException
+import me.ethanbrews.experience.utility.ExperienceHelper
 import net.minecraft.enchantment.EnchantmentHelper
 import net.minecraft.item.ItemStack
 import net.minecraft.util.Identifier
