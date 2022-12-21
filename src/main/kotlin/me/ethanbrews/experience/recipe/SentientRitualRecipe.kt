@@ -10,25 +10,19 @@ import net.minecraft.item.ItemStack
 import net.minecraft.util.Identifier
 import net.minecraft.util.registry.Registry
 import java.io.File
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.Paths
-import kotlin.streams.asSequence
 
-class EnchantmentRecipe {
+class SentientRitualRecipe : RecipeComponent() {
     @Json(name = "items")
     val recipeItems: List<InputItem> = listOf()
 
     @Json(name = "result", ignored = false)
-    private val resultIdentifier: String? = null
+    private val outputItem: OutputItem? = null
 
     @Json(name = "experience", ignored = false)
     private val xpString: String? = null
 
-    @Json(ignored = true)
-    val result: Enchantment? get() {
-        return Registry.ENCHANTMENT[Identifier(resultIdentifier)]
-    }
+    fun getResult(stack: ItemStack) = outputItem!!.getOutput(stack)
+    fun canAcceptResult(stack: ItemStack) = outputItem!!.canBeAppliedTo(stack)
 
     fun getExperienceCost(playerLevels: Int): Int {
         return xpString?.let {
@@ -60,7 +54,7 @@ class EnchantmentRecipe {
 
     companion object {
 
-        val recipes: List<EnchantmentRecipe>
+        val recipes: List<SentientRitualRecipe>
 
         private fun onEachResource(path: String, action: (File) -> Unit) {
 
@@ -79,12 +73,25 @@ class EnchantmentRecipe {
             val files = mutableListOf<File>()
             onEachResource("/data/$modid/enchantment_recipe/") { files.add(it) }
             recipes = files.mapNotNull {
-                val result = k.parse<EnchantmentRecipe>(it)
-                if (result?.result == null)
-                    logger.warn("The enchantment recipe, ${it.name}, is invalid or wishes to enchant with a non-existent enchantment. It will not be loaded!")
+                val result = k.parse<SentientRitualRecipe>(it)
+                if (result?.isConfigurationValid() != true) {
+                    logger.warn("Attempted to load sentient ritual recipe with invalid configuration. It will not be loaded!")
+                    logger.warn(result?.getConfigurationFailureReason() ?: "Recipe is null or error free! This should not be possible!")
+                }
                 result
             }
         }
 
+    }
+
+    override fun getConfigurationFailureReason(): String? {
+        val invalidRecipeItems = recipeItems.filter { !it.isConfigurationValid() }
+        return if (outputItem?.isConfigurationValid() != true) {
+            "\"result\" is invalid: ${outputItem?.getConfigurationFailureReason() ?: "missing"}"
+        } else if (invalidRecipeItems.isNotEmpty()) {
+            "\"items\" are invalid: ${invalidRecipeItems.map { it.getConfigurationFailureReason() } .joinToString(", ")}"
+        } else {
+            null
+        }
     }
 }

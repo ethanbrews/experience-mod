@@ -1,0 +1,16 @@
+{
+  "result": {
+    "item": "experience:brain"
+  },
+  "experience": "6",
+  "items": [
+    { "item": "minecraft:log" },
+    { "item": "minecraft:quartz" },
+    { "item": "minecraft:log" },
+    { "item": "minecraft:quartz" },
+    { "item": "minecraft:iron_ingot" },
+    { "item": "minecraft:iron_ingot" },
+    { "item": "minecraft:iron_ingot" },
+    { "item": "minecraft:iron_ingot" }
+  ]
+}

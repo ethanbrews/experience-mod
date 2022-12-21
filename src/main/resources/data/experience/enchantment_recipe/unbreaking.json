@@ -1,5 +1,7 @@
 {
-  "result": "minecraft:unbreaking",
+  "result": {
+    "enchantment": "minecraft:unbreaking"
+  },
   "experience": "6l",
   "items": [
     { "item": "minecraft:iron_ingot" },

@@ -1,17 +1,14 @@
 package me.ethanbrews.experience.blocks.sentientStand
 
 import me.ethanbrews.experience.items.SentientStaff
-import me.ethanbrews.experience.logger
-import me.ethanbrews.experience.recipe.EnchantmentRecipe
+import me.ethanbrews.experience.recipe.SentientRitualRecipe
 import me.ethanbrews.experience.registry.BlockRegistry
 import me.ethanbrews.experience.utility.BlockPosHelper
-import me.ethanbrews.experience.utility.ExperienceHelper
 import me.ethanbrews.experience.utility.getTotalExperiencePoints
 import me.ethanbrews.experience.utility.setTotalExperiencePoints
 import net.minecraft.block.Block
 import net.minecraft.block.BlockState
 import net.minecraft.block.entity.BlockEntity
-import net.minecraft.enchantment.EnchantmentHelper
 import net.minecraft.entity.ItemEntity
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.inventory.SimpleInventory
@@ -21,7 +18,6 @@ import net.minecraft.nbt.NbtCompound
 import net.minecraft.network.Packet
 import net.minecraft.network.listener.ClientPlayPacketListener
 import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket
-import net.minecraft.particle.BlockStateParticleEffect
 import net.minecraft.particle.ItemStackParticleEffect
 import net.minecraft.particle.ParticleTypes
 import net.minecraft.text.Text
@@ -29,6 +25,7 @@ import net.minecraft.util.ActionResult
 import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.Vec3i
 import net.minecraft.world.World
+import kotlin.math.ceil
 import kotlin.random.Random
 
 typealias GameTick = Int
@@ -180,23 +177,22 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
         if (item is SentientStaff && w != null && isValidStructure(w)) {
 
             val auxiliaryStands = getOthers(w)
-            val recipe = EnchantmentRecipe.recipes.firstOrNull { recipe ->
+            val recipe = SentientRitualRecipe.recipes.firstOrNull { recipe ->
                 recipe.validate(auxiliaryStands.map { it.stack })
             }
-            val cost = recipe?.getExperienceCost(player.experienceLevel)
+            val cost = recipe?.getExperienceCost(player.experienceLevel) ?: 0
             if (recipe == null) {
                 player.sendMessage(Text.literal("No such ritual!"), true)
-            } else if (!ExperienceHelper.canEnchantOrUpgrade(stack, recipe.result!!)) {
+            } else if (!recipe.canAcceptResult(stack)) {
                 player.sendMessage(Text.literal("The item rejects the ritual!"), true)
-            } else if (player.getTotalExperiencePoints() < cost!! && !player.isCreative) {
+            } else if (player.experienceLevel < cost && !player.isCreative) {
                 player.sendMessage(Text.literal("The ritual demands more experience!"), true)
             } else {
                 event = SentientStandEvent(
                     player.uuidAsString,
                     this.pos,
                     SETUP_INTERVAL+FINISH_INTERVAL+(ITEM_INTERVAL*4*checkTier(w)),
-                    EnchantmentHelper.getEnchantmentId(recipe.result)!!,
-                    cost
+                    recipe
                 )
                 auxiliaryStands.forEach { it.event = event }
             }
@@ -222,72 +218,90 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
     }
 
     private fun tickClient(world: World, event: SentientStandEvent, auxiliaryStands: List<SentientStandEntity>) {
-        fun nd(f: Double, t: Double): Double { return Random.Default.nextDouble(f, t) }
+        val x = randomDouble(-2.5..2.5)
+        val y = randomDouble(0.5..2.5)
+        val z = randomDouble(-2.5..2.5)
 
-        val x = nd(-2.5, 2.5); val y = nd(0.5, 2.5); val z = nd(-2.5, 2.5)
-        val vx = nd(-0.1, 0.1); val vy = nd(-0.1, 0.1); val vz = nd(-0.1, 0.1)
+        val vx = randomDouble(-0.1..0.1)
+        val vy = randomDouble(-0.1..0.1)
+        val vz = randomDouble(-0.1..0.1)
 
-        // Setup phase... Charging effect
-        if (event.initialTickCounter-event.tickCounter < SETUP_INTERVAL) {
-            world.addParticle(ParticleTypes.ENCHANT, pos.x + x, pos.y + y, pos.z + z, vx, -0.1, vz)
-            world.addParticle(ParticleTypes.PORTAL, pos.x + x, pos.y + y, pos.z + z, vx, -0.1, vz)
-        // Finish phase... Clearing effect
-        } else if (event.tickCounter <= FINISH_INTERVAL) {
-            for (i in 0 until 20) {
-                world.addParticle(ParticleTypes.PORTAL, pos.x + 0.5, pos.y + 1.0, pos.z + 0.5, vx, vy, vz)
+        when (getPhase(event.tickCounter, auxiliaryStands)) {
+
+            SentientStandEventPhase.CHARGING -> {
+                world.addParticle(ParticleTypes.ENCHANT, pos.x + x, pos.y + y, pos.z + z, vx, -0.1, vz)
+                world.addParticle(ParticleTypes.PORTAL, pos.x + x, pos.y + y, pos.z + z, vx, -0.1, vz)
             }
-        // Running phase... Destroying a particular item
-        } else {
-            val currentStand = auxiliaryStands[((event.tickCounter - (SETUP_INTERVAL + FINISH_INTERVAL)) / ITEM_INTERVAL) + (auxiliaryStands.size - 2)]
-            val direction = BlockPosHelper.findUnitVectorBetween(this.pos, currentStand.pos).multiply(0.4)
-            world.addParticle(
-                ItemStackParticleEffect(ParticleTypes.ITEM, currentStand.stack),
-                currentStand.pos.x + vx + 0.5, currentStand.pos.y + vy + 1.5, currentStand.pos.z + vz + 0.5,
-                direction.x, direction.y, direction.z
-            )
+
+            SentientStandEventPhase.CONSUME -> {
+                getConsumingStand(event.tickCounter, auxiliaryStands)?.let { consumingStand ->
+                    val direction = BlockPosHelper.findUnitVectorBetween(this.pos, consumingStand.pos).multiply(0.4)
+                    if (isLastTickOfConsumption(event.tickCounter))
+                        world.addParticle(
+                            ParticleTypes.CLOUD,
+                            consumingStand.pos.x + vx + 0.5, consumingStand.pos.y + vy + 1.5, consumingStand.pos.z + vz + 0.5,
+                            0.0, 0.0, 0.0
+                        )
+                    else
+                        world.addParticle(
+                            ItemStackParticleEffect(ParticleTypes.ITEM, consumingStand.stack),
+                            consumingStand.pos.x + vx + 0.5, consumingStand.pos.y + vy + 1.5, consumingStand.pos.z + vz + 0.5,
+                            direction.x, direction.y, direction.z
+                        )
+
+                }
+            }
+
+            SentientStandEventPhase.FINISHED -> {
+                for (i in 0 until 20) {
+                    val vx = randomDouble(-0.4..0.4)
+                    val vy = randomDouble(0.1..0.3)
+                    val vz = randomDouble(-0.4..0.4)
+                    world.addParticle(ParticleTypes.REVERSE_PORTAL, pos.x + vx + 0.5, pos.y + vy + 1.2, pos.z + vz + 0.5, vx, vy, vz)
+                }
+            }
+
+            else -> {}
         }
     }
 
     private fun tickServer(world: World, event: SentientStandEvent, auxiliaryStands: List<SentientStandEntity>) {
+        if (event.tickCounter == 0) {
+            this.event = null
+            return
+        }
+
         event.tickCounter -= 1
 
-        if (event.tickCounter == 0) {
-            val currentEnchantments = EnchantmentHelper.get(stack)
-            if (currentEnchantments.containsKey(event.enchantment)) {
-                currentEnchantments[event.enchantment] = currentEnchantments[event.enchantment]!! + 1
-            } else {
-                currentEnchantments[event.enchantment] = 1
-            }
-            EnchantmentHelper.set(currentEnchantments, stack)
-            auxiliaryStands.forEach { it.event = null }
-        } else {
-            // Take xp during setup phase.
-            if (event.initialTickCounter - event.tickCounter < SETUP_INTERVAL) {
-                event.getPlayer(world)?.let { player ->
-                    player.setTotalExperiencePoints(
-                        player.getTotalExperiencePoints() - event.experienceCost / SETUP_INTERVAL
-                    )
-                }
-            // Destroy the item in each aux stand as the ritual progresses.
-            } else if ((event.tickCounter - (SETUP_INTERVAL + FINISH_INTERVAL)) % ITEM_INTERVAL == 0) {
-                val index = ((event.tickCounter - (SETUP_INTERVAL + FINISH_INTERVAL)) / ITEM_INTERVAL) + (auxiliaryStands.size - 1)
-                if (index >= 0 && index < auxiliaryStands.size) {
-                    val nextStand = auxiliaryStands[index]
-                    nextStand.stack = ItemStack.EMPTY
-                    nextStand.sendUpdatePacket()
+        when(getPhase(event.tickCounter, auxiliaryStands)) {
+            SentientStandEventPhase.SETUP -> {
+                event.getPlayer(world)?.let { p ->
+                    p.addExperience(-(event.recipe?.getExperienceCost(p.experienceLevel) ?: 0))
                 }
             }
+
+            SentientStandEventPhase.CONSUME -> {
+                if (isLastTickOfConsumption(event.tickCounter)) {
+                    getConsumingStand(event.tickCounter, auxiliaryStands)?.run {
+                        this.stack = ItemStack.EMPTY
+                        this.sendUpdatePacket()
+                    }
+                }
+            }
+
+            SentientStandEventPhase.FINISHED -> {
+                stack = event.recipe?.getResult(stack) ?: stack
+                auxiliaryStands.forEach { it.event = null }
+            }
+
+            else -> {}
         }
 
         // Set _event to avoid sending update packets when not needed.
-        this._event = if (event.tickCounter == 0) null else event
+        this._event = event
 
-        if (
-            event.tickCounter == 0 ||
-            event.initialTickCounter - event.tickCounter == SETUP_INTERVAL ||
-            event.tickCounter == FINISH_INTERVAL ||
-            (event.tickCounter - (SETUP_INTERVAL + FINISH_INTERVAL)) % ITEM_INTERVAL == 0
-        ) { sendUpdatePacket() }
+        if (isEventStateChangeTick(event.tickCounter, auxiliaryStands))
+            sendUpdatePacket()
     }
 
     private fun sendUpdatePacket() {
@@ -338,6 +352,43 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
         const val SETUP_INTERVAL: GameTick =   80
         const val ITEM_INTERVAL: GameTick =    30
         const val FINISH_INTERVAL: GameTick = 30
+
+        private fun isEventStateChangeTick(count: Int, others: List<SentientStandEntity>): Boolean {
+            return count == 0 ||
+                    count == FINISH_INTERVAL + (ITEM_INTERVAL * others.size) ||
+                    count == FINISH_INTERVAL ||
+                    isLastTickOfConsumption(count - 1) ||
+                    isLastTickOfConsumption(count) ||
+                    isLastTickOfConsumption(count + 1)
+        }
+
+        private fun getPhase(count: Int, others: List<SentientStandEntity>): SentientStandEventPhase {
+            return if (count == 0)
+                SentientStandEventPhase.FINISHED
+            else if (count == (FINISH_INTERVAL + SETUP_INTERVAL + (ITEM_INTERVAL * others.size)) - 1)
+                SentientStandEventPhase.SETUP
+            else if (count > FINISH_INTERVAL + (ITEM_INTERVAL * others.size))
+                SentientStandEventPhase.CHARGING
+            else if (count <= FINISH_INTERVAL)
+                SentientStandEventPhase.FINISH
+            else
+                SentientStandEventPhase.CONSUME
+        }
+
+        fun randomDouble(range: ClosedFloatingPointRange<Double>): Double =
+            Random.Default.nextDouble(range.start, range.endInclusive)
+
+        fun isLastTickOfConsumption(count: Int) =
+            ceil(standValue(count)).toInt() != ceil(standValue(count-1)).toInt()
+
+        private fun standValue(count: Int) = ((count - FINISH_INTERVAL).toDouble() / ITEM_INTERVAL) - 1
+
+        fun getConsumingStand(count: Int, others: List<SentientStandEntity>): SentientStandEntity? {
+            return if (getPhase(count, others) == SentientStandEventPhase.CONSUME) {
+                val standIndex = ceil(standValue(count)).toInt()
+                others[standIndex]
+            } else null
+        }
 
         fun tick(world: World, pos: BlockPos, state: BlockState, be: SentientStandEntity) {
             be.tick(world)

@@ -1,5 +1,7 @@
 {
-  "result": "minecraft:sharpness",
+  "result": {
+    "enchantment": "minecraft:sharpness"
+  },
   "experience": "6l",
   "items": [
     { "item": "minecraft:quartz" },

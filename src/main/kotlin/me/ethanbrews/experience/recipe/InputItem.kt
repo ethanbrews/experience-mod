@@ -9,7 +9,7 @@ import net.minecraft.item.ItemStack
 import net.minecraft.util.Identifier
 import net.minecraft.util.registry.Registry
 
-class InputItem {
+class InputItem : RecipeComponent() {
     @Json(name = "item", ignored = false)
     private val item: String? = null
 
@@ -21,13 +21,6 @@ class InputItem {
 
     @Json(name = "consume")
     val consume: Boolean = true
-
-    private fun validateOrThrow() {
-        val all = listOf(item, enchantment, tag)
-        if (all.filter { it == null }.size != 2)
-            throw InvalidFormatException("Enchantment recipe data cannot declare multiple of 'item', 'enchantment', 'tag'.")
-
-    }
 
     private fun matchItem(stack: ItemStack): Boolean {
         return Identifier(item) == Registry.ITEM.getId(stack.item)
@@ -44,7 +37,7 @@ class InputItem {
     }
 
     fun match(stack: ItemStack): Boolean {
-        validateOrThrow()
+        validateConfigurationOrThrow()
         if (item != null)
             return matchItem(stack)
         else if (enchantment != null)
@@ -52,5 +45,12 @@ class InputItem {
         else if (tag != null)
             return matchTag(stack)
         throw ImpossibleException("Failure to match a valid InputItem")
+    }
+
+    override fun getConfigurationFailureReason(): String? {
+        return if (listOfNotNull(item, enchantment, tag).size != 1)
+            "Enchantment recipe data cannot declare multiple of 'item', 'enchantment', 'tag'."
+        else
+            null
     }
 }

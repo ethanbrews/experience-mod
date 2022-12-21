@@ -1,5 +1,6 @@
 package me.ethanbrews.experience.blocks.sentientStand
 
+import me.ethanbrews.experience.recipe.SentientRitualRecipe
 import me.ethanbrews.experience.utility.BlockPosHelper
 import me.ethanbrews.experience.utility.toList
 import net.minecraft.enchantment.Enchantment
@@ -15,8 +16,7 @@ class SentientStandEvent(
     var playerUuid: String?,
     var masterPos: BlockPos,
     var tickCounter: Int,
-    var enchantment_id: Identifier,
-    val experienceCost: Int
+    var recipe: SentientRitualRecipe?
 ) {
 
     var initialTickCounter: Int = tickCounter
@@ -25,17 +25,12 @@ class SentientStandEvent(
         return world.getPlayerByUuid(UUID.fromString(playerUuid))
     }
 
-    val enchantment: Enchantment?
-        get() { return Registry.ENCHANTMENT[enchantment_id] }
-
     fun toNbt(): NbtCompound {
         val nbt = NbtCompound()
         nbt.putIntArray("masterPos", masterPos.toList())
         nbt.putInt("tickCounter", tickCounter)
         nbt.putInt("iTickCounter", initialTickCounter)
         playerUuid?.let { nbt.putString("playerUuid", it) }
-        nbt.putString("enchId", enchantment_id.toString())
-        nbt.putInt("xpCost", experienceCost)
         return nbt
     }
 
@@ -49,8 +44,7 @@ class SentientStandEvent(
                 playerUuid,
                 BlockPosHelper.blockPosFromArray(nbt.getIntArray("masterPos")),
                 nbt.getInt("tickCounter"),
-                Identifier(nbt.getString("enchId")),
-                nbt.getInt("xpCost")
+                null
             )
             e.initialTickCounter = nbt.getInt("iTickCounter")
             return e
