@@ -4,8 +4,6 @@ import me.ethanbrews.experience.items.SentientStaff
 import me.ethanbrews.experience.recipe.SentientRitualRecipe
 import me.ethanbrews.experience.registry.BlockRegistry
 import me.ethanbrews.experience.utility.BlockPosHelper
-import me.ethanbrews.experience.utility.getTotalExperiencePoints
-import me.ethanbrews.experience.utility.setTotalExperiencePoints
 import net.minecraft.block.Block
 import net.minecraft.block.BlockState
 import net.minecraft.block.entity.BlockEntity
@@ -347,7 +345,7 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
     /** Send an update to the client. Also mark as dirty for saving to disk. */
     private fun sendUpdatePacket() {
         markDirty()
-        world?.updateListeners(pos, cachedState, cachedState, Block.NOTIFY_LISTENERS);
+        world?.updateListeners(pos, cachedState, cachedState, Block.NOTIFY_LISTENERS)
     }
 
     /** Drop the contents of the internal inventory on the ground as it breaks */
@@ -433,6 +431,7 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
             } else null
         }
 
+        @Suppress("UNUSED_PARAMETER")
         fun tick(world: World, pos: BlockPos, state: BlockState, be: SentientStandEntity) {
             be.tick(world)
         }
