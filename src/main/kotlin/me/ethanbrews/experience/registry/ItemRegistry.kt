@@ -9,15 +9,15 @@ import net.minecraft.item.*
 import net.minecraft.util.registry.Registry
 
 object ItemRegistry {
-    val item_group: ItemGroup = FabricItemGroupBuilder.create(id("general"))
-        .icon { ItemStack(Items.DIAMOND_BLOCK) }
+    private val item_group: ItemGroup = FabricItemGroupBuilder.create(id("general"))
+        .icon { ItemStack(brain) }
         .build()
 
-    val defaultItemSettings = Item.Settings().group(item_group)
+    val defaultItemSettings: Item.Settings = Item.Settings().group(item_group)
 
-    val sentientStick = SentientStick()
-    val sentientStaff = SentientStaff()
-    val brain = SimpleItem("brain")
+    private val sentientStick = SentientStick()
+    private val sentientStaff = SentientStaff()
+    private val brain = SimpleItem("brain")
 
     fun register() {
         listOf(sentientStaff, brain, BlockRegistry.sentient_stone.item, BlockRegistry.sentient_stand.item, sentientStick).forEach {

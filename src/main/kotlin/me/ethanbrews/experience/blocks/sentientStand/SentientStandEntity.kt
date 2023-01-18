@@ -35,6 +35,7 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
     private var _inventory = SimpleInventory(1)
     private var _event: SentientStandEvent? = null
 
+    /** stack represents the single stack contained within the internal inventory */
     var stack: ItemStack
         get() = _inventory.getStack(0)
         set(value) {
@@ -42,12 +43,15 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
             sendUpdatePacket()
         }
 
+    /** The block entity is 'locked' if it is busy with an event */
     private val isLocked : Boolean
         get() { return _event != null }
 
+    /** true if this is the center block (containing the target item rather than ingredient items) */
     private val _isMasterBlock: Boolean
         get() { return _event?.let { it.masterPos == this.pos } == true }
 
+    /** The current event which may be null if nothing is happening. */
     private var event: SentientStandEvent?
         get() = _event
         set(value) {
@@ -67,6 +71,14 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
         return checkTier(world) > 0
     }
 
+    /**
+     * Get the tier of the current structure (from the perspective of this entity which may not be the master block)
+     * The structure is only valid if a complete tier is made of the present blocks.
+     * A valid tier 1 structure becomes invalid if tier 2 is partially constructed.
+     *
+     * @param world Minecraft world
+     * @return The tier where 0 represents an invalid structure
+     */
     private fun checkTier(world: World): Int {
         fun checkIt(it: Vec3i): Boolean = world.getBlockEntity(this.pos.add(it)) is SentientStandEntity
         if (!tier1Positions.all { checkIt(it) })
@@ -78,6 +90,12 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
         return 1
     }
 
+    /**
+     * Get the other blocks in this structure - from the perspective of this block which may not be the master.
+     *
+     * @param world Minecraft world
+     * @return A list of surrounding [SentientStandEntity]'s that make the structure.
+     */
     private fun getOthers(world: World): List<SentientStandEntity> {
         return when (checkTier(world)) {
             1 -> tier1Positions.map {
@@ -153,6 +171,7 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
         return ActionResult.PASS
     }
 
+    /** Write NBT for this block */
     override fun writeNbt(nbt: NbtCompound) {
         nbt.put("inventory", _inventory.toNbtList())
         if (_event != null)
@@ -160,6 +179,7 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
         super.writeNbt(nbt)
     }
 
+    /** Read NBT for this block */
     override fun readNbt(nbt: NbtCompound) {
         super.readNbt(nbt)
         _inventory = SimpleInventory(1)
@@ -170,6 +190,13 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
             null
     }
 
+    /**
+     *  React to a player using the block.
+     *  This will either interact with the inventory or attempt to begin a ritual.
+     *
+     *  @param player The entity using the block
+     *  @return The resulting action
+     */
     fun playerUse(player: PlayerEntity): ActionResult {
         val item: Item = player.inventory.getStack(player.inventory.selectedSlot).item
         var result = ActionResult.PASS
@@ -182,11 +209,11 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
             }
             val cost = recipe?.getExperienceCost(player.experienceLevel) ?: 0
             if (recipe == null) {
-                player.sendMessage(Text.literal("No such ritual!"), true)
+                player.sendMessage(Text.translatable("ritual.message.invalidRecipe"), true)
             } else if (!recipe.canAcceptResult(stack)) {
-                player.sendMessage(Text.literal("The item rejects the ritual!"), true)
+                player.sendMessage(Text.translatable("ritual.message.invalidTarget"), true)
             } else if (player.experienceLevel < cost && !player.isCreative) {
-                player.sendMessage(Text.literal("The ritual demands more experience!"), true)
+                player.sendMessage(Text.translatable("ritual.message.notEnoughExperience"), true)
             } else {
                 event = SentientStandEvent(
                     player.uuidAsString,
@@ -204,6 +231,10 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
         return result
     }
 
+    /**
+     * Common tick for client and server.
+     * If valid and busy, it will trigger the tick Client/Server methods with their respective args.
+     */
     fun tick(world: World) {
         if (!_isMasterBlock)
             return
@@ -217,6 +248,7 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
             tickServer(world, event, auxStands)
     }
 
+    /** Tick on the client, spawn effects etc. */
     private fun tickClient(world: World, event: SentientStandEvent, auxiliaryStands: List<SentientStandEntity>) {
         val x = randomDouble(-2.5..2.5)
         val y = randomDouble(0.5..2.5)
@@ -252,12 +284,19 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
                 }
             }
 
+            SentientStandEventPhase.FINISH -> {
+                val vx2 = randomDouble(-0.4..0.4)
+                val vy2 = randomDouble(0.1..0.3)
+                val vz2 = randomDouble(-0.4..0.4)
+                world.addParticle(ParticleTypes.ENCHANT, pos.x + vx2 + 0.5, pos.y + vy2 + 1.2, pos.z + vz2 + 0.5, vx2, vy2, vz2)
+            }
+
             SentientStandEventPhase.FINISHED -> {
                 for (i in 0 until 20) {
-                    val vx = randomDouble(-0.4..0.4)
-                    val vy = randomDouble(0.1..0.3)
-                    val vz = randomDouble(-0.4..0.4)
-                    world.addParticle(ParticleTypes.REVERSE_PORTAL, pos.x + vx + 0.5, pos.y + vy + 1.2, pos.z + vz + 0.5, vx, vy, vz)
+                    val vx2 = randomDouble(-0.4..0.4)
+                    val vy2 = randomDouble(0.1..0.3)
+                    val vz2 = randomDouble(-0.4..0.4)
+                    world.addParticle(ParticleTypes.REVERSE_PORTAL, pos.x + vx2 + 0.5, pos.y + vy2 + 1.2, pos.z + vz2 + 0.5, vx2, vy2, vz2)
                 }
             }
 
@@ -265,6 +304,7 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
         }
     }
 
+    /** Tick on the server, progress the event and react to changes (consume items then apply effects). */
     private fun tickServer(world: World, event: SentientStandEvent, auxiliaryStands: List<SentientStandEntity>) {
         if (event.tickCounter == 0) {
             this.event = null
@@ -304,10 +344,13 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
             sendUpdatePacket()
     }
 
+    /** Send an update to the client. Also mark as dirty for saving to disk. */
     private fun sendUpdatePacket() {
+        markDirty()
         world?.updateListeners(pos, cachedState, cachedState, Block.NOTIFY_LISTENERS);
     }
 
+    /** Drop the contents of the internal inventory on the ground as it breaks */
     fun breaking(world: World) {
         _event?.let { e ->
             val master = (world.getBlockEntity(e.masterPos) as? SentientStandEntity)
@@ -356,7 +399,7 @@ class SentientStandEntity(pos: BlockPos, state: BlockState) : BlockEntity(BlockR
         private fun isEventStateChangeTick(count: Int, others: List<SentientStandEntity>): Boolean {
             return count == 0 ||
                     count == FINISH_INTERVAL + (ITEM_INTERVAL * others.size) ||
-                    count == FINISH_INTERVAL ||
+                    count == FINISH_INTERVAL - 1 ||
                     isLastTickOfConsumption(count - 1) ||
                     isLastTickOfConsumption(count) ||
                     isLastTickOfConsumption(count + 1)

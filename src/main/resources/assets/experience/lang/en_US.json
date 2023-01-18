@@ -1,3 +1,12 @@
 {
-  "block.experience.sentient_stand": "Sentient Stand"
+  "block.experience.sentient_stand": "Sentient Stand",
+  "block.experience.sentient_stone": "Sentient Stone",
+  "item.experience.sentient_stick": "Sentient Stick",
+  "item.experience.sentient_staff": "Sentient Staff",
+  "item.experience.brain": "Brain",
+  "itemGroup.experience.general": "Experience",
+
+  "ritual.message.invalidRecipe": "No such ritual!",
+  "ritual.message.invalidTarget": "The item rejects the ritual!",
+  "ritual.message.notEnoughExperience": "The ritual demands more experience!"
 }
